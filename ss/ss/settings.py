@@ -153,3 +153,21 @@ TIME_ZONE = 'Africa/Tripoli'
 LOGIN_URL = 'login'
 LOGIN_REDIRECT_URL = 'dashboard'
 LOGOUT_REDIRECT_URL = 'login'
+
+# ss/settings.py
+
+# المسار الذي يزوره المستعرض للوصول للملفات
+STATIC_URL = '/static/'
+
+# المسار النهائي الذي سيتم تجميع الملفات الثابتة فيه لـ WhiteNoise
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+
+# إعدادات تخزين WhiteNoise للإنتاج
+STORAGES = {
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+    },
+}
