@@ -31,7 +31,14 @@ SECRET_KEY = os.environ.get('SECRET_KEY', 'django_secret_key_placeholder')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+# ss/settings.py
+
+ALLOWED_HOSTS = [
+    'material-equipment-management-system.onrender.com',
+    'localhost',
+    '127.0.0.1',
+    '*',
+]
 
 
 # Application definition
