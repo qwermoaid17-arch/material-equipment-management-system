@@ -1,4 +1,3 @@
-# هذا الملف يستبدل ss/urls.py (ملف urls.py الرئيسي للمشروع)
 from django.contrib import admin
 from django.urls import path, include
 from django.contrib.auth import views as auth_views

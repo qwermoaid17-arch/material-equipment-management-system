@@ -47,7 +47,8 @@
         <li class="nav-item"><a class="nav-link {% if request.path == '/' or 'dashboard' in request.path %}active{% endif %}" href="{% url 'dashboard' %}"><i class="bi bi-speedometer2"></i> لوحة التحكم</a></li>
         <li class="nav-item"><a class="nav-link {% if 'inventory' in request.path %}active{% endif %}" href="{% url 'inventory' %}"><i class="bi bi-boxes"></i> المخزون</a></li>
         <li class="nav-item"><a class="nav-link {% if 'transfers' in request.path %}active{% endif %}" href="{% url 'transfers' %}"><i class="bi bi-truck"></i> التحويلات</a></li>
-        {% if request.user.is_superuser or request.user.is_staff or request.user.role == 'SUPER_ADMIN' %}
+        <li class="nav-item"><a class="nav-link {% if 'notifications' in request.path %}active{% endif %}" href="{% url 'notifications' %}"><i class="bi bi-bell"></i> الإشعارات <span id="notifBadge" class="badge bg-danger d-none">0</span></a></li>
+        {% if request.user.is_superuser or request.user.is_staff %}
         <li class="nav-item"><a class="nav-link" href="/admin/" target="_blank"><i class="bi bi-gear"></i> الإدارة</a></li>
         {% endif %}
       </ul>
@@ -94,8 +95,8 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
 const ME = {
-  role: "{{ request.user.role|default:'' }}",
-  site: {% if request.user.site_id %}{{ request.user.site_id }}{% else %}null{% endif %},
+  role: "{{ request.user.role }}",
+  site: {{ request.user.site_id|default:"null" }},
   isSuper: {% if request.user.is_superuser or request.user.role == 'SUPER_ADMIN' %}true{% else %}false{% endif %}
 };
 function getCsrf(){
@@ -116,6 +117,7 @@ async function api(url, method='GET', body=null){
 async function apiList(url){ const d = await api(url); return Array.isArray(d) ? d : (d.results || []); }
 
 function errText(e){
+  if(e instanceof Error) return 'خطأ في الصفحة: ' + e.message;
   if(typeof e === 'string') return e;
   if(Array.isArray(e)) return e.join(' ');
   if(e && e.detail) return e.detail;

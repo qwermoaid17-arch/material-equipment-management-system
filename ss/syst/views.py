@@ -14,7 +14,7 @@ from .serializers import (SiteSerializer, ItemSerializer, SiteInventorySerialize
 
 
 def is_super(user):
-    return getattr(user, 'role', None) == 'SUPER_ADMIN'
+    return bool(getattr(user, 'is_superuser', False)) or getattr(user, 'role', None) == 'SUPER_ADMIN'
 
 def send_notifications(site_ids, actor, title, site_message, admin_message):
     site_user_ids = []

@@ -12,7 +12,7 @@
 </div>
 
 <ul class="nav nav-tabs mb-3 no-print">
-  <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tabMine">{% if request.user.role == 'SUPER_ADMIN' %}كل المخزون{% else %}مخزون موقعي{% endif %}</button></li>
+  <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tabMine">{% if request.user.is_superuser or request.user.role == 'SUPER_ADMIN' %}كل المخزون{% else %}مخزون موقعي{% endif %}</button></li>
   <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabSurplus">الكميات الزائدة في المواقع الأخرى</button></li>
 </ul>
 
@@ -20,7 +20,7 @@
   <div class="tab-pane fade show active" id="tabMine">
     <div class="row g-2 mb-3 no-print">
       <div class="col-md-6"><input id="q" class="form-control" placeholder="بحث بالاسم أو الرمز..." oninput="render()"></div>
-      {% if request.user.role == 'SUPER_ADMIN' %}
+      {% if request.user.is_superuser or request.user.role == 'SUPER_ADMIN' %}
       <div class="col-md-4"><select id="fSite" class="form-select" onchange="render()"><option value="">كل المواقع</option></select></div>
       {% endif %}
     </div>
@@ -40,7 +40,7 @@
   <div class="modal-header"><h5 class="modal-title" id="mTitle">إضافة صنف</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
   <div class="modal-body">
     <input type="hidden" id="fId">
-    {% if request.user.role == 'SUPER_ADMIN' %}
+    {% if request.user.is_superuser or request.user.role == 'SUPER_ADMIN' %}
     <div class="mb-3"><label class="form-label">الموقع</label><select id="fSiteSel" class="form-select"></select></div>
     {% endif %}
     <div class="mb-3"><label class="form-label">المادة / المعدة</label><select id="fItem" class="form-select"></select></div>
