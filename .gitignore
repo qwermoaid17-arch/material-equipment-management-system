@@ -1,0 +1,32 @@
+# Python virtual environments
+venv/
+env/
+ENV/
+.venv/
+
+# Byte-compiled / optimized files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Database (Local SQLite)
+*.sqlite3
+*.db
+
+# Environment variables & local settings
+.env
+local_settings.py
+
+# Static & Media files generated at runtime
+staticfiles/
+media/
+
+# IDE / Editor configuration
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS generated files
+.DS_Store
+Thumbs.db

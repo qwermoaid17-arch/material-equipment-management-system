@@ -1,0 +1,40 @@
+{% extends "admin/base_site.html" %}
+{% block extrahead %}{{ block.super }}
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  /* الألوان تتبع الوضع الفاتح/الداكن تلقائياً، ولا توجد خلفيات ثابتة تُخفي النص */
+  :root, html[data-theme="light"]{
+    --header-bg:#1f3a5f; --header-color:#fff; --header-branding-color:#fff; --header-link-color:#fff;
+    --button-bg:#1f3a5f; --button-hover-bg:#2e6da4;
+    --default-button-bg:#2e6da4; --default-button-hover-bg:#1f3a5f;
+    --module-header-bg:#1f3a5f;
+  }
+  body, input, select, textarea, button, table, th, td{font-family:'Cairo',sans-serif!important}
+  #header{padding:14px 24px}
+  #site-name a{font-weight:700;font-size:1.25rem}
+  #content{padding:24px 30px}
+  .module{border-radius:10px;overflow:hidden}
+  .module caption, .module h2{background:#1f3a5f;color:#fff!important;font-weight:600;font-size:14px;padding:10px 14px}
+  .module caption a, .module caption a:link, .module caption a:visited{color:#fff!important}
+  .button, input[type=submit], input[type=button], .submit-row input, a.button{border-radius:8px}
+  .object-tools a{border-radius:14px}
+  #changelist-filter{border-radius:10px}
+  /* رأس الجدول وتظليل الصف يستخدمان ألوان الثيم الحالي */
+  #changelist table thead th{background:var(--darkened-bg)!important;color:var(--body-fg)!important;font-weight:700}
+  #changelist table thead th a, #changelist table thead th a:link{color:var(--body-fg)!important}
+  .results tbody tr:hover td{background:var(--selected-row, rgba(46,109,164,.18))!important}
+  /* شريط المسار */
+  .breadcrumbs ol, nav[aria-label="Breadcrumbs"] ol{list-style:none;display:flex;flex-wrap:wrap;gap:6px;padding:0;margin:0}
+  .breadcrumbs li:not(:last-child)::after, nav[aria-label="Breadcrumbs"] li:not(:last-child)::after{content:'‹';margin-inline-start:6px;opacity:.7}
+</style>
+<script>
+  // ترجمة نصين من لوحة الإجراءات ما زالا بالإنجليزية في Django
+  document.addEventListener('DOMContentLoaded', function(){
+    document.querySelectorAll('.actions button, .actions option').forEach(function(el){
+      var t = el.textContent.trim();
+      if(t === 'Run') el.textContent = 'تنفيذ';
+      else if(t.indexOf('Select an option') !== -1) el.textContent = '--- اختر إجراءً ---';
+    });
+  });
+</script>
+{% endblock %}

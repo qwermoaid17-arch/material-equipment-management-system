@@ -1,0 +1,139 @@
+{% extends 'syst/base.html' %}
+{% block title %}التحويلات{% endblock %}
+{% block report_title %}تقرير حركة تحويلات المواد والمعدات{% endblock %}
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <h4 class="fw-bold m-0">طلبات وتحويلات المواد</h4>
+  <div class="d-flex gap-2 no-print">
+    <button class="btn btn-outline-success btn-sm" onclick="doExport()"><i class="bi bi-file-earmark-excel"></i> تصدير Excel</button>
+    <button class="btn btn-outline-secondary btn-sm" onclick="window.print()"><i class="bi bi-file-earmark-pdf"></i> طباعة / PDF</button>
+    <button class="btn btn-primary btn-sm" onclick="openForm()"><i class="bi bi-plus-lg"></i> طلب جديد</button>
+  </div>
+</div>
+
+<div class="row g-2 mb-3 no-print">
+  <div class="col-md-3"><input id="q" class="form-control" placeholder="بحث بالمادة أو الموقع..." oninput="render()"></div>
+  <div class="col-md-3"><select id="fStatus" class="form-select" onchange="render()"><option value="">كل الحالات</option></select></div>
+  <div class="col-6 col-md-3"><input type="date" id="dFrom" class="form-control" onchange="render()" title="من تاريخ"></div>
+  <div class="col-6 col-md-3"><input type="date" id="dTo" class="form-control" onchange="render()" title="إلى تاريخ"></div>
+</div>
+
+<div class="card"><div class="table-responsive"><table class="table table-hover align-middle mb-0">
+  <thead class="table-light"><tr><th>#</th><th>المادة</th><th>من موقع</th><th>إلى موقع</th><th>الكمية</th><th>الحالة</th><th>التاريخ</th><th class="no-print">إجراءات</th></tr></thead>
+  <tbody id="rows"></tbody></table></div></div>
+
+<div class="modal fade" id="mdl"><div class="modal-dialog"><div class="modal-content">
+  <div class="modal-header"><h5 class="modal-title">طلب نقل جديد</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
+  <div class="modal-body">
+    <div class="mb-3"><label class="form-label">المادة / المعدة</label><select id="fItem" class="form-select" onchange="refreshSources()"></select></div>
+    <div class="mb-3"><label class="form-label">من موقع (المصدر)</label><select id="fSrc" class="form-select" onchange="refreshQty()"></select></div>
+    <div class="mb-3"><label class="form-label">إلى موقع (المستلم)</label><select id="fDst" class="form-select"></select></div>
+    <div class="mb-3"><label class="form-label">الكمية</label><input type="number" min="1" id="fQty" class="form-control" value="1"><div class="form-text" id="qtyHint"></div></div>
+  </div>
+  <div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+    <button class="btn btn-primary" onclick="save()">إرسال الطلب</button></div>
+</div></div></div>
+
+<div class="modal fade" id="logMdl"><div class="modal-dialog"><div class="modal-content">
+  <div class="modal-header"><h5 class="modal-title">سجل حركة الطلب</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
+  <div class="modal-body" id="logBody"></div></div></div></div>
+{% endblock %}
+{% block scripts %}
+<script>
+let TR = [], SITES = [], SUR = [];
+const modal = new bootstrap.Modal('#mdl'), logModal = new bootstrap.Modal('#logMdl');
+fStatus.innerHTML += Object.entries(STATUS).map(([k,v])=>`<option value="${k}">${v[0]}</option>`).join('');
+
+async function load(){
+  try{
+    [TR, SITES, SUR] = await Promise.all([apiList('/api/transfers/'), apiList('/api/sites/'), api('/api/inventory/surplus/')]);
+    fDst.innerHTML = SITES.map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join('');
+    if(!ME.isSuper){ fDst.value = ME.site; fDst.disabled = true; }
+    render();
+    const p = new URLSearchParams(location.search);
+    if(p.get('item')){ openForm(p.get('item'), p.get('source')); history.replaceState(null,'','/transfers/'); }
+  }catch(e){ toast(errText(e),'danger'); }
+}
+function filtered(){
+  const t = q.value.trim().toLowerCase();
+  return TR.filter(x =>
+    (!t || [x.item_name,x.source_site_name,x.target_site_name].some(v=>v.toLowerCase().includes(t))) &&
+    (!fStatus.value || x.status===fStatus.value) &&
+    (!dFrom.value || x.created_at.slice(0,10) >= dFrom.value) &&
+    (!dTo.value || x.created_at.slice(0,10) <= dTo.value));
+}
+function actions(x){
+  const mineSrc = ME.isSuper || ME.site === x.source_site, mineDst = ME.isSuper || ME.site === x.target_site;
+  let b = '';
+  if(x.status==='PENDING' && mineSrc) b += btn(x.id,'APPROVED','قبول','success') + btn(x.id,'REJECTED','رفض','danger');
+  if(x.status==='APPROVED' && mineSrc) b += btn(x.id,'IN_TRANSIT','بدء النقل','primary');
+  if(x.status==='IN_TRANSIT' && mineDst) b += btn(x.id,'DELIVERED','تأكيد الاستلام','success');
+  return b + `<button class="btn btn-sm btn-outline-secondary" onclick="showLog(${x.id})"><i class="bi bi-clock-history"></i></button>`;
+}
+const btn = (id,st,label,c) => `<button class="btn btn-sm btn-${c} me-1" onclick="setStatus(${id},'${st}')">${label}</button>`;
+function render(){
+  rows.innerHTML = filtered().map(x => `<tr><td>${x.id}</td><td>${esc(x.item_name)}</td><td>${esc(x.source_site_name)}</td>
+    <td>${esc(x.target_site_name)}</td><td>${x.quantity}</td><td>${statusBadge(x.status)}</td>
+    <td class="small">${fmtDate(x.created_at)}</td><td class="no-print text-nowrap">${actions(x)}</td></tr>`).join('')
+    || '<tr><td colspan="8" class="text-center text-muted py-4">لا توجد طلبات</td></tr>';
+}
+function openForm(item, source){
+  if(!SUR.length) return toast('لا توجد كميات زائدة معروضة حالياً في المواقع الأخرى','warning');
+  const items = [...new Map(SUR.map(s=>[s.item,s])).values()];
+  fItem.innerHTML = items.map(s=>`<option value="${s.item}">${esc(s.item_name)} (${esc(s.item_sku)})</option>`).join('');
+  if(item && items.some(s=>s.item==item)) fItem.value = item;
+  refreshSources(source);
+  modal.show();
+}
+function refreshSources(source){
+  const rows = SUR.filter(s => s.item == fItem.value);
+  fSrc.innerHTML = rows.map(s=>`<option value="${s.site}">${esc(s.site_name)} — الزائد ${s.quantity_surplus}</option>`).join('');
+  if(source && rows.some(s=>s.site==source)) fSrc.value = source;
+  refreshQty();
+}
+function refreshQty(){
+  const r = SUR.find(s => s.item == fItem.value && s.site == fSrc.value);
+  const max = r ? r.quantity_surplus : 1;
+  fQty.max = max; fQty.value = max;           // الافتراضي = أقصى كمية متاحة
+  qtyHint.textContent = `الحد الأقصى المتاح: ${max}`;
+}
+async function save(){
+  if(+fQty.value < 1 || +fQty.value > +fQty.max) return toast(`الكمية يجب أن تكون بين 1 و ${fQty.max}`,'warning');
+  try{
+    await api('/api/transfers/','POST',{item:+fItem.value, source_site:+fSrc.value, target_site:+fDst.value, quantity:+fQty.value});
+    modal.hide(); toast('تم إرسال الطلب'); load();
+  }catch(e){ toast(errText(e),'danger'); }
+}
+async function setStatus(id, st){
+  let note = '';
+  if(st==='REJECTED'){ note = prompt('سبب الرفض (اختياري):') ?? ''; }
+  else if(!confirm('تأكيد الإجراء؟')) return;
+  try{ await api(`/api/transfers/${id}/change_status/`,'POST',{status:st, note}); toast('تم تحديث الحالة'); load(); }
+  catch(e){ toast(errText(e),'danger'); }
+}
+async function showLog(id){
+  try{
+    const logs = await api(`/api/transfers/${id}/logs/`);
+    logBody.innerHTML = '<ul class="list-group">' + logs.map(l => `<li class="list-group-item d-flex justify-content-between">
+      <span>${statusBadge(l.status)} <small class="text-muted">بواسطة ${esc(l.by)} ${l.note ? '— '+esc(l.note) : ''}</small></span>
+      <small>${fmtDate(l.time)}</small></li>`).join('') + '</ul>';
+    logModal.show();
+  }catch(e){ toast(errText(e),'danger'); }
+}
+function doExport(){
+  exportCSV(['#','المادة','من','إلى','الكمية','الحالة','التاريخ'],
+    filtered().map(x=>[x.id,x.item_name,x.source_site_name,x.target_site_name,x.quantity,STATUS[x.status][0],x.created_at]), 'transfers.csv');
+}
+function getPrintFilters(){
+  const f = [];
+  if(fStatus.value) f.push(['الحالة', STATUS[fStatus.value][0]]);
+  if(dFrom.value) f.push(['الفترة من', dFrom.value]);
+  if(dTo.value) f.push(['إلى', dTo.value]);
+  if(q.value.trim()) f.push(['بحث', q.value.trim()]);
+  if(!f.length) f.push(['التصفية', 'كل الطلبات']);
+  f.push(['عدد السجلات', filtered().length]);
+  return f;
+}
+load();
+</script>
+{% endblock %}

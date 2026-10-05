@@ -1,0 +1,25 @@
+{% extends 'syst/base.html' %}
+{% block title %}الإشعارات{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h4 class="fw-bold m-0">الإشعارات</h4>
+  <button class="btn btn-outline-primary btn-sm" onclick="readAll()">تحديد الكل كمقروء</button>
+</div>
+<div class="list-group" id="list"><div class="list-group-item text-muted">جاري التحميل...</div></div>
+{% endblock %}
+{% block scripts %}
+<script>
+async function load(){
+  try{
+    const ns = await apiList('/api/notifications/');
+    list.innerHTML = ns.map(n => `<a href="#" class="list-group-item list-group-item-action ${n.is_read ? '' : 'bg-primary-subtle'}" onclick="markRead(${n.id});return false">
+      <div class="d-flex justify-content-between"><strong>${esc(n.title)}</strong><small>${fmtDate(n.created_at)}</small></div>
+      <div class="small text-muted">${esc(n.message)}</div></a>`).join('')
+      || '<div class="list-group-item text-muted text-center py-4">لا توجد إشعارات</div>';
+  }catch(e){ toast(errText(e),'danger'); }
+}
+async function markRead(id){ await api(`/api/notifications/${id}/read/`,'POST'); load(); }
+async function readAll(){ await api('/api/notifications/read_all/','POST'); load(); document.getElementById('notifBadge').classList.add('d-none'); }
+load();
+</script>
+{% endblock %}

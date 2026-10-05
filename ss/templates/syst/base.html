@@ -1,0 +1,164 @@
+{% load static %}<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="csrf" content="{{ csrf_token }}">
+  <title>{% block title %}النظام{% endblock %} | إدارة المواد والمعدات</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.rtl.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    body{font-family:'Cairo',sans-serif;background:#f4f6f9}
+    .navbar{background:#1f3a5f}
+    .stat-card{border:0;border-radius:14px;box-shadow:0 2px 8px rgba(0,0,0,.06)}
+    .stat-card .icon{width:52px;height:52px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:1.6rem}
+    .card{border:0;border-radius:14px;box-shadow:0 2px 8px rgba(0,0,0,.05)}
+    .print-only{display:none}
+    @page{size:A4;margin:14mm 12mm 18mm;@bottom-center{content:"صفحة " counter(page) " من " counter(pages);font-size:10px;color:#555}}
+    @media print{
+      body{background:#fff!important;font-size:12px}
+      .navbar,.no-print,.btn,.toast-container,.modal,.nav-tabs{display:none!important}
+      .print-only{display:block!important}
+      main{padding:0!important}
+      .card{box-shadow:none!important;border:0!important}
+      .table-responsive{overflow:visible!important}
+      .table{font-size:11px}
+      .table th,.table td{border:1px solid #999!important;padding:4px 6px!important}
+      .table th{background:#e9ecef!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+      thead{display:table-header-group} tr{page-break-inside:avoid}
+      .badge{background:none!important;color:#000!important;border:1px solid #666;font-weight:400}
+      .report-header{border-bottom:2px solid #1f3a5f;margin-bottom:12px;padding-bottom:8px}
+      .logo-box{width:56px;height:56px;border:2px solid #1f3a5f;border-radius:10px;font-size:30px;color:#1f3a5f;display:flex;align-items:center;justify-content:center}
+      .filters{font-size:12px;text-align:center;background:#f1f3f5!important;padding:5px;border-radius:4px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+      .signatures{margin-top:40px;page-break-inside:avoid}
+      .signatures td{width:25%;text-align:center;padding:0 8px}
+      .sig-line{border-bottom:1px dotted #000;height:42px}
+    }
+  </style>
+</head>
+<body>
+<nav class="navbar navbar-expand-lg navbar-dark sticky-top">
+  <div class="container-fluid">
+    <a class="navbar-brand fw-bold" href="{% url 'dashboard' %}"><i class="bi bi-box-seam"></i> إدارة المواد والمعدات</a>
+    <button class="navbar-toggler" data-bs-toggle="collapse" data-bs-target="#nav"><span class="navbar-toggler-icon"></span></button>
+    <div class="collapse navbar-collapse" id="nav">
+      <ul class="navbar-nav me-auto">
+        <li class="nav-item"><a class="nav-link {% if request.path == '/' or 'dashboard' in request.path %}active{% endif %}" href="{% url 'dashboard' %}"><i class="bi bi-speedometer2"></i> لوحة التحكم</a></li>
+        <li class="nav-item"><a class="nav-link {% if 'inventory' in request.path %}active{% endif %}" href="{% url 'inventory' %}"><i class="bi bi-boxes"></i> المخزون</a></li>
+        <li class="nav-item"><a class="nav-link {% if 'transfers' in request.path %}active{% endif %}" href="{% url 'transfers' %}"><i class="bi bi-truck"></i> التحويلات</a></li>
+        <li class="nav-item"><a class="nav-link {% if 'notifications' in request.path %}active{% endif %}" href="{% url 'notifications' %}"><i class="bi bi-bell"></i> الإشعارات <span id="notifBadge" class="badge bg-danger d-none">0</span></a></li>
+        {% if request.user.role == 'SUPER_ADMIN' %}
+        <li class="nav-item"><a class="nav-link" href="/admin/" target="_blank"><i class="bi bi-gear"></i> الإدارة</a></li>
+        {% endif %}
+      </ul>
+      <div class="d-flex align-items-center text-white gap-3">
+        <span class="small"><i class="bi bi-person-circle"></i> {{ request.user.username }}
+          {% if request.user.site %}— {{ request.user.site.name }}{% else %}— الإدارة العامة{% endif %}</span>
+        <form method="post" action="{% url 'logout' %}" class="m-0">{% csrf_token %}
+          <button class="btn btn-sm btn-outline-light">خروج</button></form>
+      </div>
+    </div>
+  </div>
+</nav>
+
+<main class="container-fluid py-4 px-3 px-md-4">
+<div class="print-only report-header">
+  <div class="d-flex align-items-center justify-content-between">
+    <div class="d-flex align-items-center gap-3">
+      <!-- الشعار: استبدل السطر التالي بـ <img src="{% static 'logo.png' %}" height="56"> عند توفر الشعار -->
+      <div class="logo-box"><i class="bi bi-box-seam"></i></div>
+      <div><div class="fs-5 fw-bold">اسم الشركة / المؤسسة</div><div class="small">نظام إدارة المواد والمعدات</div></div>
+    </div>
+    <div class="small">
+      <div>تاريخ الاستخراج: <b id="printDate"></b></div>
+      <div>الموظف: <b>{{ request.user.username }}</b> — {% if request.user.site %}{{ request.user.site.name }}{% else %}الإدارة العامة{% endif %}</div>
+    </div>
+  </div>
+  <h4 class="text-center fw-bold my-3">{% block report_title %}تقرير{% endblock %}</h4>
+  <div id="printFilters" class="filters"></div>
+</div>
+{% block content %}{% endblock %}
+<div class="print-only signatures">
+  <table class="w-100"><tr>
+    <td><div class="fw-bold">إعداد</div><div class="small">{{ request.user.username }}</div><div class="sig-line"></div><small>التوقيع</small></td>
+    <td><div class="fw-bold">مراجعة</div><div class="small">&nbsp;</div><div class="sig-line"></div><small>التوقيع</small></td>
+    <td><div class="fw-bold">اعتماد مدير الموقع / المخزن</div><div class="small">&nbsp;</div><div class="sig-line"></div><small>التوقيع</small></td>
+    <td><div class="fw-bold">اعتماد الإدارة العامة</div><div class="small">&nbsp;</div><div class="sig-line"></div><small>التوقيع</small></td>
+  </tr></table>
+  <div class="text-center small mt-3 text-muted">صدر هذا التقرير آلياً من نظام إدارة المواد والمعدات</div>
+</div>
+</main>
+
+<div class="toast-container position-fixed bottom-0 start-0 p-3" id="toasts"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+const ME = {
+  role: "{{ request.user.role }}",
+  site: {{ request.user.site_id|default:"null" }},
+  isSuper: "{{ request.user.role }}" === "SUPER_ADMIN"
+};
+function getCsrf(){
+  const m = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/);
+  return m ? decodeURIComponent(m[1]) : document.querySelector('meta[name=csrf]').content;
+}
+
+async function api(url, method='GET', body=null){
+  const r = await fetch(url, {
+    method, credentials:'same-origin',
+    headers:{'Content-Type':'application/json','X-CSRFToken':getCsrf()},
+    body: body ? JSON.stringify(body) : undefined
+  });
+  let d = null; try{ d = await r.json(); }catch(e){}
+  if(!r.ok) throw d || {detail:'حدث خطأ غير متوقع'};
+  return d;
+}
+async function apiList(url){ const d = await api(url); return Array.isArray(d) ? d : (d.results || []); }
+
+function errText(e){
+  if(typeof e === 'string') return e;
+  if(Array.isArray(e)) return e.join(' ');
+  if(e && e.detail) return e.detail;
+  return Object.values(e||{}).map(v => Array.isArray(v) ? v.join(' ') : v).join(' — ') || 'حدث خطأ';
+}
+function toast(msg, type='success'){
+  const el = document.createElement('div');
+  el.className = `toast align-items-center text-bg-${type} border-0`;
+  el.innerHTML = `<div class="d-flex"><div class="toast-body">${esc(msg)}</div><button class="btn-close btn-close-white m-auto me-2" data-bs-dismiss="toast"></button></div>`;
+  document.getElementById('toasts').appendChild(el);
+  const t = new bootstrap.Toast(el, {delay:4000}); t.show();
+  el.addEventListener('hidden.bs.toast', () => el.remove());
+}
+function esc(s){ return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function fmtDate(s){ return s ? new Date(s).toLocaleString('ar-LY',{dateStyle:'medium',timeStyle:'short'}) : ''; }
+
+const STATUS = {
+  PENDING:['بانتظار الموافقة','warning text-dark'], APPROVED:['مقبول','info text-dark'],
+  IN_TRANSIT:['جاري النقل','primary'], DELIVERED:['تم الاستلام','success'], REJECTED:['مرفوض','danger']
+};
+const statusBadge = s => `<span class="badge bg-${STATUS[s][1]}">${STATUS[s][0]}</span>`;
+
+function exportCSV(headers, rows, filename){
+  const q = v => `"${String(v ?? '').replace(/"/g,'""')}"`;
+  const csv = '\ufeff' + [headers, ...rows].map(r => r.map(q).join(',')).join('\r\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], {type:'text/csv;charset=utf-8'}));
+  a.download = filename; a.click();
+}
+
+api('/api/notifications/').then(d => {
+  const n = (Array.isArray(d) ? d : d.results).filter(x => !x.is_read).length;
+  const b = document.getElementById('notifBadge');
+  if(n){ b.textContent = n; b.classList.remove('d-none'); }
+}).catch(()=>{});
+
+window.addEventListener('beforeprint', () => {
+  document.getElementById('printDate').textContent = new Date().toLocaleString('ar-LY',{dateStyle:'medium',timeStyle:'short'});
+  const f = (typeof getPrintFilters === 'function') ? getPrintFilters() : [];
+  document.getElementById('printFilters').innerHTML = f.map(x => `<span><b>${esc(x[0])}:</b> ${esc(x[1])}</span>`).join(' &nbsp;|&nbsp; ');
+});
+</script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,129 @@
+{% extends 'syst/base.html' %}
+{% block title %}المخزون{% endblock %}
+{% block report_title %}تقرير المخزون والجرد{% endblock %}
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <h4 class="fw-bold m-0">المخزون</h4>
+  <div class="d-flex gap-2 no-print">
+    <button class="btn btn-outline-success btn-sm" onclick="doExport()"><i class="bi bi-file-earmark-excel"></i> تصدير Excel</button>
+    <button class="btn btn-outline-secondary btn-sm" onclick="window.print()"><i class="bi bi-file-earmark-pdf"></i> طباعة / PDF</button>
+    <button class="btn btn-primary btn-sm" onclick="openForm()"><i class="bi bi-plus-lg"></i> إضافة صنف للمخزون</button>
+  </div>
+</div>
+
+<ul class="nav nav-tabs mb-3 no-print">
+  <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tabMine">{% if request.user.role == 'SUPER_ADMIN' %}كل المخزون{% else %}مخزون موقعي{% endif %}</button></li>
+  <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabSurplus">الكميات الزائدة في المواقع الأخرى</button></li>
+</ul>
+
+<div class="tab-content">
+  <div class="tab-pane fade show active" id="tabMine">
+    <div class="row g-2 mb-3 no-print">
+      <div class="col-md-6"><input id="q" class="form-control" placeholder="بحث بالاسم أو الرمز..." oninput="render()"></div>
+      {% if request.user.role == 'SUPER_ADMIN' %}
+      <div class="col-md-4"><select id="fSite" class="form-select" onchange="render()"><option value="">كل المواقع</option></select></div>
+      {% endif %}
+    </div>
+    <div class="card"><div class="table-responsive"><table class="table table-hover align-middle mb-0">
+      <thead class="table-light"><tr><th>المادة</th><th>الرمز</th><th>الموقع</th><th>المتاح</th><th>الزائد</th><th class="no-print"></th></tr></thead>
+      <tbody id="rows"></tbody></table></div></div>
+  </div>
+
+  <div class="tab-pane fade" id="tabSurplus">
+    <div class="card"><div class="table-responsive"><table class="table table-hover align-middle mb-0">
+      <thead class="table-light"><tr><th>المادة</th><th>الرمز</th><th>الموقع</th><th>الكمية الزائدة</th><th></th></tr></thead>
+      <tbody id="surRows"></tbody></table></div></div>
+  </div>
+</div>
+
+<div class="modal fade" id="mdl"><div class="modal-dialog"><div class="modal-content">
+  <div class="modal-header"><h5 class="modal-title" id="mTitle">إضافة صنف</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
+  <div class="modal-body">
+    <input type="hidden" id="fId">
+    {% if request.user.role == 'SUPER_ADMIN' %}
+    <div class="mb-3"><label class="form-label">الموقع</label><select id="fSiteSel" class="form-select"></select></div>
+    {% endif %}
+    <div class="mb-3"><label class="form-label">المادة / المعدة</label><select id="fItem" class="form-select"></select></div>
+    <div class="row">
+      <div class="col"><label class="form-label">الكمية المتاحة</label><input type="number" min="0" id="fAvail" class="form-control" value="0"></div>
+      <div class="col"><label class="form-label">الكمية الزائدة للطلب</label><input type="number" min="0" id="fSurp" class="form-control" value="0"></div>
+    </div>
+    <div class="form-text">الكمية الزائدة هي ما يُعرض على المواقع الأخرى، ويجب ألا تتجاوز المتاحة.</div>
+  </div>
+  <div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+    <button class="btn btn-primary" onclick="save()">حفظ</button></div>
+</div></div></div>
+{% endblock %}
+{% block scripts %}
+<script>
+let INV = [], SUR = [], ITEMS = [], SITES = [];
+const modal = new bootstrap.Modal('#mdl');
+
+async function load(){
+  try{
+    [INV, SUR, ITEMS, SITES] = await Promise.all([apiList('/api/inventory/'), api('/api/inventory/surplus/'),
+                                                  apiList('/api/items/'), apiList('/api/sites/')]);
+    fItem.innerHTML = ITEMS.map(i=>`<option value="${i.id}">${esc(i.name)} (${esc(i.sku)})</option>`).join('');
+    const so = SITES.map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join('');
+    if(ME.isSuper){ fSiteSel.innerHTML = so; fSite.innerHTML = '<option value="">كل المواقع</option>' + so; }
+    render();
+  }catch(e){ toast(errText(e),'danger'); }
+}
+function filtered(){
+  const t = q.value.trim().toLowerCase(), s = ME.isSuper ? fSite.value : '';
+  return INV.filter(x => (!t || x.item_name.toLowerCase().includes(t) || x.item_sku.toLowerCase().includes(t)) && (!s || x.site == s));
+}
+function render(){
+  rows.innerHTML = filtered().map(x => `<tr><td>${esc(x.item_name)} <small class="text-muted">(${esc(x.item_unit)})</small></td>
+    <td>${esc(x.item_sku)}</td><td>${esc(x.site_name)}</td><td>${x.quantity_available}</td>
+    <td>${x.quantity_surplus ? `<span class="badge bg-success">${x.quantity_surplus}</span>` : '0'}</td>
+    <td class="text-end no-print"><button class="btn btn-sm btn-outline-primary" onclick="openForm(${x.id})"><i class="bi bi-pencil"></i></button>
+    ${ME.isSuper ? `<button class="btn btn-sm btn-outline-danger" onclick="del(${x.id})"><i class="bi bi-trash"></i></button>` : ''}</td></tr>`).join('')
+    || '<tr><td colspan="6" class="text-center text-muted py-4">لا توجد بيانات</td></tr>';
+
+  surRows.innerHTML = SUR.map(x => `<tr><td>${esc(x.item_name)}</td><td>${esc(x.item_sku)}</td><td>${esc(x.site_name)}</td>
+    <td><span class="badge bg-success">${x.quantity_surplus} ${esc(x.item_unit)}</span></td>
+    <td><a class="btn btn-sm btn-primary" href="/transfers/?item=${x.item}&source=${x.site}">طلب هذه الكمية</a></td></tr>`).join('')
+    || '<tr><td colspan="5" class="text-center text-muted py-4">لا توجد كميات زائدة معروضة</td></tr>';
+}
+function openForm(id){
+  const x = INV.find(i => i.id === id);
+  mTitle.textContent = x ? 'تعديل المخزون' : 'إضافة صنف للمخزون';
+  fId.value = x ? x.id : ''; fItem.value = x ? x.item : ITEMS[0]?.id; fItem.disabled = !!x;
+  fAvail.value = x ? x.quantity_available : 0; fSurp.value = x ? x.quantity_surplus : 0;
+  if(ME.isSuper){ fSiteSel.value = x ? x.site : SITES[0]?.id; fSiteSel.disabled = !!x; }
+  modal.show();
+}
+async function save(){
+  const avail = +fAvail.value, surp = +fSurp.value;
+  if(surp > avail) return toast('الكمية الزائدة أكبر من المتاحة','warning');
+  const data = {quantity_available: avail, quantity_surplus: surp};
+  try{
+    if(fId.value) await api(`/api/inventory/${fId.value}/`, 'PATCH', data);
+    else { data.item = +fItem.value; if(ME.isSuper) data.site = +fSiteSel.value; await api('/api/inventory/', 'POST', data); }
+    modal.hide(); toast('تم الحفظ'); load();
+  }catch(e){ toast(errText(e),'danger'); }
+}
+async function del(id){
+  if(!confirm('حذف هذا السجل؟')) return;
+  try{ await api(`/api/inventory/${id}/`,'DELETE'); toast('تم الحذف'); load(); }catch(e){ toast(errText(e),'danger'); }
+}
+function doExport(){
+  exportCSV(['المادة','الرمز','الموقع','الوحدة','المتاح','الزائد'],
+    filtered().map(x=>[x.item_name,x.item_sku,x.site_name,x.item_unit,x.quantity_available,x.quantity_surplus]), 'inventory.csv');
+}
+function getPrintFilters(){
+  const f = [];
+  if(document.querySelector('#tabSurplus.active')){
+    f.push(['القائمة', 'الكميات الزائدة المعروضة في المواقع الأخرى'], ['عدد السجلات', SUR.length]);
+    return f;
+  }
+  if(ME.isSuper && fSite.value) f.push(['الموقع', fSite.selectedOptions[0].text]);
+  if(q.value.trim()) f.push(['بحث', q.value.trim()]);
+  if(!f.length) f.push(['التصفية', ME.isSuper ? 'كل المواقع' : 'مخزون الموقع كاملاً']);
+  f.push(['عدد السجلات', filtered().length]);
+  return f;
+}
+load();
+</script>
+{% endblock %}

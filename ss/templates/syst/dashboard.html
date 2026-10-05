@@ -1,0 +1,59 @@
+{% extends 'syst/base.html' %}
+{% block title %}لوحة التحكم{% endblock %}
+{% block content %}
+<h4 class="fw-bold mb-4">لوحة التحكم</h4>
+<div class="row g-3 mb-4">
+  <div class="col-6 col-lg-3"><div class="card stat-card"><div class="card-body d-flex align-items-center gap-3">
+    <div class="icon bg-primary-subtle text-primary"><i class="bi bi-boxes"></i></div>
+    <div><div class="text-muted small">أصناف المخزون</div><div class="fs-4 fw-bold" id="sItems">-</div></div></div></div></div>
+  <div class="col-6 col-lg-3"><div class="card stat-card"><div class="card-body d-flex align-items-center gap-3">
+    <div class="icon bg-success-subtle text-success"><i class="bi bi-recycle"></i></div>
+    <div><div class="text-muted small">إجمالي الكميات الزائدة</div><div class="fs-4 fw-bold" id="sSurplus">-</div></div></div></div></div>
+  <div class="col-6 col-lg-3"><div class="card stat-card"><div class="card-body d-flex align-items-center gap-3">
+    <div class="icon bg-warning-subtle text-warning"><i class="bi bi-hourglass-split"></i></div>
+    <div><div class="text-muted small">طلبات بانتظار الموافقة</div><div class="fs-4 fw-bold" id="sPending">-</div></div></div></div></div>
+  <div class="col-6 col-lg-3"><div class="card stat-card"><div class="card-body d-flex align-items-center gap-3">
+    <div class="icon bg-info-subtle text-info"><i class="bi bi-truck"></i></div>
+    <div><div class="text-muted small">جاري النقل</div><div class="fs-4 fw-bold" id="sTransit">-</div></div></div></div></div>
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-7">
+    <div class="card"><div class="card-header bg-white fw-bold d-flex justify-content-between">
+      <span>آخر التحويلات</span><a href="{% url 'transfers' %}" class="small">عرض الكل</a></div>
+      <div class="table-responsive"><table class="table table-hover align-middle mb-0">
+        <thead class="table-light"><tr><th>المادة</th><th>من</th><th>إلى</th><th>الكمية</th><th>الحالة</th></tr></thead>
+        <tbody id="recent"><tr><td colspan="5" class="text-center text-muted">جاري التحميل...</td></tr></tbody>
+      </table></div></div>
+  </div>
+  <div class="col-lg-5">
+    <div class="card"><div class="card-header bg-white fw-bold">أعلى الكميات الزائدة المتاحة</div>
+      <ul class="list-group list-group-flush" id="surplusList"><li class="list-group-item text-muted">جاري التحميل...</li></ul></div>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+(async () => {
+  try {
+    const [inv, tr, sur] = await Promise.all([
+      apiList('/api/inventory/'), apiList('/api/transfers/'), api('/api/inventory/surplus/')
+    ]);
+    sItems.textContent = inv.length;
+    sSurplus.textContent = inv.reduce((a,x)=>a+x.quantity_surplus,0);
+    sPending.textContent = tr.filter(t=>t.status==='PENDING').length;
+    sTransit.textContent = tr.filter(t=>t.status==='IN_TRANSIT').length;
+
+    recent.innerHTML = tr.slice(0,8).map(t => `<tr><td>${esc(t.item_name)}</td><td>${esc(t.source_site_name)}</td>
+      <td>${esc(t.target_site_name)}</td><td>${t.quantity}</td><td>${statusBadge(t.status)}</td></tr>`).join('')
+      || '<tr><td colspan="5" class="text-center text-muted">لا توجد تحويلات</td></tr>';
+
+    surplusList.innerHTML = sur.sort((a,b)=>b.quantity_surplus-a.quantity_surplus).slice(0,8).map(s =>
+      `<li class="list-group-item d-flex justify-content-between"><span>${esc(s.item_name)}
+       <small class="text-muted">— ${esc(s.site_name)}</small></span>
+       <span class="badge bg-success">${s.quantity_surplus} ${esc(s.item_unit)}</span></li>`).join('')
+      || '<li class="list-group-item text-muted">لا توجد كميات زائدة</li>';
+  } catch(e){ toast(errText(e),'danger'); }
+})();
+</script>
+{% endblock %}
