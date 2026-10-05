@@ -94,8 +94,8 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
 const ME = {
-  role: "{{ request.user.role }}",
-  site: {{ request.user.site_id|default:"null" }},
+  role: "{{ request.user.role|default:'' }}",
+  site: {% if request.user.site_id %}{{ request.user.site_id }}{% else %}null{% endif %},
   isSuper: {% if request.user.is_superuser or request.user.role == 'SUPER_ADMIN' %}true{% else %}false{% endif %}
 };
 function getCsrf(){
