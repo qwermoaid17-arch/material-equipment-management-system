@@ -48,7 +48,7 @@
         <li class="nav-item"><a class="nav-link {% if 'inventory' in request.path %}active{% endif %}" href="{% url 'inventory' %}"><i class="bi bi-boxes"></i> المخزون</a></li>
         <li class="nav-item"><a class="nav-link {% if 'transfers' in request.path %}active{% endif %}" href="{% url 'transfers' %}"><i class="bi bi-truck"></i> التحويلات</a></li>
         <li class="nav-item"><a class="nav-link {% if 'notifications' in request.path %}active{% endif %}" href="{% url 'notifications' %}"><i class="bi bi-bell"></i> الإشعارات <span id="notifBadge" class="badge bg-danger d-none">0</span></a></li>
-        {% if request.user.role == 'SUPER_ADMIN' %}
+        {% if request.user.is_superuser or request.user.is_staff %}
         <li class="nav-item"><a class="nav-link" href="/admin/" target="_blank"><i class="bi bi-gear"></i> الإدارة</a></li>
         {% endif %}
       </ul>
@@ -97,7 +97,7 @@
 const ME = {
   role: "{{ request.user.role }}",
   site: {{ request.user.site_id|default:"null" }},
-  isSuper: "{{ request.user.role }}" === "SUPER_ADMIN"
+  isSuper: {% if request.user.is_superuser or request.user.role == 'SUPER_ADMIN' %}true{% else %}false{% endif %}
 };
 function getCsrf(){
   const m = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/);
